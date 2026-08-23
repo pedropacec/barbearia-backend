@@ -1,0 +1,68 @@
+{
+  "name": "Barbearia Vintage — E-mail de confirmação de agendamento",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Como funciona\n\n1. O backend da Barbearia Vintage chama este webhook (POST) sempre que um novo agendamento é criado.\n2. O payload traz: clientName, clientEmail, service, date, weekday e time.\n3. O nó de e-mail envia a confirmação ao cliente usando SMTP (Gmail com senha de app).\n\n**Configuração necessária:** criar a credencial SMTP no n8n e copiar a URL de produção do webhook para a variável N8N_WEBHOOK_URL do backend.",
+        "height": 280,
+        "width": 360
+      },
+      "id": "sticky-note-1",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-60, -160]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "novo-agendamento",
+        "options": {}
+      },
+      "id": "webhook-novo-agendamento",
+      "name": "Novo agendamento (Webhook)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [360, 0],
+      "webhookId": "novo-agendamento"
+    },
+    {
+      "parameters": {
+        "fromEmail": "Barbearia Vintage <barbearia.vintage.ps@gmail.com>",
+        "toEmail": "={{ $json.body.clientEmail }}",
+        "subject": "=Agendamento confirmado — {{ $json.body.service }} em {{ $json.body.date }}",
+        "emailFormat": "html",
+        "html": "=<div style=\"font-family: Georgia, serif; max-width: 520px; margin: 0 auto; background: #f4eee1; border: 1px solid #b9a888; padding: 32px;\">\n  <div style=\"text-align: center; border-bottom: 2px solid #8e2f2e; padding-bottom: 16px; margin-bottom: 24px;\">\n    <h1 style=\"margin: 0; color: #29201a; font-size: 26px;\">Barbearia <em style=\"color: #8e2f2e;\">Vintage</em></h1>\n    <p style=\"margin: 6px 0 0; color: #a98634; font-size: 12px; letter-spacing: 3px; text-transform: uppercase;\">Agendamento confirmado</p>\n  </div>\n  <p style=\"color: #29201a; font-size: 15px;\">Olá, <strong>{{ $json.body.clientName }}</strong>!</p>\n  <p style=\"color: #6d5f50; font-size: 15px;\">Seu horário está garantido. Confira os detalhes:</p>\n  <table style=\"width: 100%; background: #fbf7ec; border: 1px solid #d9cdb6; border-collapse: collapse; margin: 18px 0;\">\n    <tr>\n      <td style=\"padding: 12px 16px; border-bottom: 1px solid #d9cdb6; color: #6d5f50; font-size: 13px; text-transform: uppercase; letter-spacing: 1px;\">Serviço</td>\n      <td style=\"padding: 12px 16px; border-bottom: 1px solid #d9cdb6; color: #29201a; font-size: 15px;\"><strong>{{ $json.body.service }}</strong></td>\n    </tr>\n    <tr>\n      <td style=\"padding: 12px 16px; border-bottom: 1px solid #d9cdb6; color: #6d5f50; font-size: 13px; text-transform: uppercase; letter-spacing: 1px;\">Data</td>\n      <td style=\"padding: 12px 16px; border-bottom: 1px solid #d9cdb6; color: #29201a; font-size: 15px;\"><strong>{{ $json.body.date }}</strong> ({{ $json.body.weekday }})</td>\n    </tr>\n    <tr>\n      <td style=\"padding: 12px 16px; color: #6d5f50; font-size: 13px; text-transform: uppercase; letter-spacing: 1px;\">Horário</td>\n      <td style=\"padding: 12px 16px; color: #29201a; font-size: 15px;\"><strong>{{ $json.body.time }}</strong></td>\n    </tr>\n  </table>\n  <p style=\"color: #6d5f50; font-size: 14px;\">Se precisar remarcar ou cancelar, é só falar com a gente pelo WhatsApp.</p>\n  <p style=\"color: #29201a; font-size: 14px; margin-top: 24px;\">Até lá! ✂️<br/><strong>Equipe Barbearia Vintage</strong></p>\n</div>",
+        "options": {}
+      },
+      "id": "email-confirmacao",
+      "name": "Enviar e-mail de confirmação",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [620, 0],
+      "credentials": {
+        "smtp": {
+          "id": "PLACEHOLDER",
+          "name": "SMTP Gmail — Barbearia Vintage"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Novo agendamento (Webhook)": {
+      "main": [
+        [
+          {
+            "node": "Enviar e-mail de confirmação",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

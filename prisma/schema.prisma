@@ -1,0 +1,55 @@
+// Schema do banco da Barbearia Vintage.
+// Em desenvolvimento usamos SQLite; para produção basta trocar o provider
+// para "postgresql" e apontar DATABASE_URL para o banco hospedado.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Funcionários autorizados a acessar o sistema
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  password  String // hash bcrypt, nunca a senha em texto
+  createdAt DateTime @default(now())
+}
+
+// Clientes da barbearia
+model Client {
+  id           Int           @id @default(autoincrement())
+  name         String
+  email        String
+  notes        String? // observações gerais (preferências de corte, etc.)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  appointments Appointment[]
+}
+
+// Serviços oferecidos pela barbearia
+model Service {
+  id           Int           @id @default(autoincrement())
+  name         String        @unique
+  appointments Appointment[]
+}
+
+// Agendamentos: vinculam cliente + serviço a uma data/horário
+// status: agendado | concluido | cancelado | nao_compareceu
+model Appointment {
+  id          Int      @id @default(autoincrement())
+  scheduledAt DateTime
+  status      String   @default("agendado")
+  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clientId    Int
+  service     Service  @relation(fields: [serviceId], references: [id])
+  serviceId   Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([scheduledAt])
+}
