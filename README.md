@@ -40,6 +40,9 @@ Todas as rotas (exceto login e health) exigem o header `Authorization: Bearer <t
 | PUT | `/api/clients/:id` | Edita cliente |
 | DELETE | `/api/clients/:id` | Remove cliente (agendamentos em cascata) |
 | GET | `/api/services` | Lista os serviços oferecidos |
+| GET | `/api/public/services` | (Pública) Serviços, para o agendamento online |
+| GET | `/api/public/availability?date=` | (Pública) Horários livres do dia, já sem os ocupados |
+| POST | `/api/public/bookings` | (Pública) Cria a solicitação de agendamento do cliente |
 | GET | `/api/appointments` | Agenda ordenada por data/horário (`?from=&to=` opcional) |
 | POST | `/api/appointments` | Cria agendamento **e dispara o e-mail via n8n** |
 | PUT | `/api/appointments/:id` | Edita data, horário, cliente ou serviço |
@@ -51,6 +54,16 @@ Todas as rotas (exceto login e health) exigem o header `Authorization: Bearer <t
 - **Sem horários duplicados:** a API recusa (HTTP 409) um agendamento ativo no mesmo horário de outro — exatamente o problema que o caderno físico causava.
 - **Status controlados:** apenas os quatro status definidos no case são aceitos.
 - **Falha isolada da automação:** se o n8n estiver indisponível, o agendamento é salvo normalmente e o erro fica no log. A automação nunca derruba a operação.
+
+### Agendamento online (rotas públicas)
+
+O cliente pode solicitar um horário pela página pública, mas **não visualiza nem gerencia a agenda** — isso continua exclusivo dos funcionários logados, como o case exige. Proteções do endpoint público:
+
+- Só aceita horários dentro do funcionamento (ter–sex 9h–19h, sáb 8h–18h), no passo de 30 minutos e com antecedência mínima de 30 minutos;
+- Recusa horário já ocupado (HTTP 409);
+- Rate limit de 5 solicitações por IP por hora;
+- Se o email já é de um cliente da casa, reaproveita o cadastro em vez de duplicar;
+- A resposta devolve apenas o que o próprio cliente informou — nenhum dado de terceiros.
 
 ## Integração com o n8n
 
