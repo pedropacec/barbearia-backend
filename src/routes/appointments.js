@@ -45,10 +45,17 @@ async function findConflict(scheduledAt, barberId, ignoreId = null) {
 }
 
 // GET /api/appointments — agenda completa, ordenada por data e horário.
-// Aceita ?from=YYYY-MM-DD&to=YYYY-MM-DD para filtrar um período.
+// Aceita ?from=YYYY-MM-DD&to=YYYY-MM-DD e ?barberId=N para filtrar.
 router.get("/", async (req, res, next) => {
   try {
     const where = {};
+    if (req.query.barberId) {
+      const barberId = Number(req.query.barberId);
+      if (!Number.isInteger(barberId) || barberId <= 0) {
+        return res.status(400).json({ error: "Profissional inválido" });
+      }
+      where.barberId = barberId;
+    }
     if (req.query.from || req.query.to) {
       where.scheduledAt = {};
       if (req.query.from) where.scheduledAt.gte = new Date(`${req.query.from}T00:00:00`);
