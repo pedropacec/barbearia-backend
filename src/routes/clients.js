@@ -7,17 +7,32 @@ const router = Router();
 const clientSchema = z.object({
   name: z.string().trim().min(2, "Nome deve ter pelo menos 2 caracteres").max(80, "Nome muito longo"),
   email: z.string().trim().email("Email inválido"),
+  phone: z.string().trim().max(20, "Telefone muito longo").optional().or(z.literal("")),
   notes: z.string().trim().max(500, "Observações muito longas").optional().or(z.literal("")),
 });
 
-// GET /api/clients — lista todos os clientes, mais recentes primeiro
+// GET /api/clients — lista os clientes, com contagem de atendimentos e a
+// data do último corte concluído (para calcular "há quanto tempo" no front)
 router.get("/", async (_req, res, next) => {
   try {
     const clients = await prisma.client.findMany({
       orderBy: { name: "asc" },
-      include: { _count: { select: { appointments: true } } },
+      include: {
+        _count: { select: { appointments: true } },
+        appointments: {
+          where: { status: "concluido" },
+          orderBy: { scheduledAt: "desc" },
+          take: 1,
+          select: { scheduledAt: true },
+        },
+      },
     });
-    res.json(clients);
+    // Achata o último corte num campo simples e remove a lista auxiliar
+    const withLastCut = clients.map(({ appointments, ...c }) => ({
+      ...c,
+      lastCutAt: appointments[0]?.scheduledAt ?? null,
+    }));
+    res.json(withLastCut);
   } catch (err) {
     next(err);
   }
@@ -31,9 +46,9 @@ router.post("/", async (req, res, next) => {
       return res.status(400).json({ error: parsed.error.issues[0].message });
     }
 
-    const { name, email, notes } = parsed.data;
+    const { name, email, phone, notes } = parsed.data;
     const client = await prisma.client.create({
-      data: { name, email, notes: notes || null },
+      data: { name, email, phone: phone || null, notes: notes || null },
     });
     res.status(201).json(client);
   } catch (err) {
@@ -55,10 +70,10 @@ router.put("/:id", async (req, res, next) => {
       return res.status(404).json({ error: "Cliente não encontrado" });
     }
 
-    const { name, email, notes } = parsed.data;
+    const { name, email, phone, notes } = parsed.data;
     const client = await prisma.client.update({
       where: { id },
-      data: { name, email, notes: notes || null },
+      data: { name, email, phone: phone || null, notes: notes || null },
     });
     res.json(client);
   } catch (err) {

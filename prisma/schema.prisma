@@ -25,6 +25,7 @@ model Client {
   id           Int           @id @default(autoincrement())
   name         String
   email        String
+  phone        String? // WhatsApp do cliente (opcional)
   notes        String? // observações gerais (preferências de corte, etc.)
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt

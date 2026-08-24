@@ -72,11 +72,11 @@ async function main() {
   if (clientCount === 0) {
     const clients = await Promise.all(
       [
-        { name: "João Ferreira", email: "joao.ferreira@example.com", notes: "Prefere máquina 2 nas laterais" },
-        { name: "Rafael Souza", email: "rafael.souza@example.com", notes: "Cliente desde a inauguração" },
-        { name: "Lucas Mendes", email: "lucas.mendes@example.com", notes: null },
-        { name: "André Oliveira", email: "andre.oliveira@example.com", notes: "Alérgico a talco" },
-        { name: "Bruno Costa", email: "bruno.costa@example.com", notes: null },
+        { name: "João Ferreira", email: "joao.ferreira@example.com", phone: "11987650001", notes: "Prefere máquina 2 nas laterais" },
+        { name: "Rafael Souza", email: "rafael.souza@example.com", phone: "11987650002", notes: "Cliente desde a inauguração" },
+        { name: "Lucas Mendes", email: "lucas.mendes@example.com", phone: "11987650003", notes: null },
+        { name: "André Oliveira", email: "andre.oliveira@example.com", phone: null, notes: "Alérgico a talco" },
+        { name: "Bruno Costa", email: "bruno.costa@example.com", phone: "11987650005", notes: null },
       ].map((data) => prisma.client.create({ data }))
     );
 
