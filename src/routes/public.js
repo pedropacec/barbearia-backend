@@ -84,7 +84,7 @@ router.get("/availability", async (req, res, next) => {
 });
 
 const bookingSchema = z.object({
-  name: z.string().trim().min(2, "Informe seu nome"),
+  name: z.string().trim().min(2, "Informe seu nome").max(80, "Nome muito longo"),
   email: z.string().trim().toLowerCase().email("Email inválido"),
   serviceId: z.coerce.number().int().positive("Selecione um serviço"),
   barberId: z.coerce.number().int().positive("Escolha o profissional"),

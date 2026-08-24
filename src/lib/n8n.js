@@ -9,6 +9,18 @@ const WEEKDAYS = [
   "quinta-feira", "sexta-feira", "sábado",
 ];
 
+// O e-mail é montado em HTML no n8n. Como o nome do cliente vem de um
+// campo público, escapamos os caracteres especiais antes de enviar, para
+// que nenhum conteúdo interpretável como HTML chegue ao corpo do e-mail.
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
 export async function notifyNewAppointment(appointment) {
   const url = process.env.N8N_WEBHOOK_URL;
   if (!url) {
@@ -18,10 +30,10 @@ export async function notifyNewAppointment(appointment) {
 
   const date = new Date(appointment.scheduledAt);
   const payload = {
-    clientName: appointment.client.name,
+    clientName: escapeHtml(appointment.client.name),
     clientEmail: appointment.client.email,
-    service: appointment.service.name,
-    barber: appointment.barber?.name || "A definir",
+    service: escapeHtml(appointment.service.name),
+    barber: escapeHtml(appointment.barber?.name || "A definir"),
     date: date.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }),
     weekday: WEEKDAYS[date.getDay()],
     time: date.toLocaleTimeString("pt-BR", {

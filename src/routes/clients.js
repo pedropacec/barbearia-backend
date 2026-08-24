@@ -5,7 +5,7 @@ import { prisma } from "../lib/prisma.js";
 const router = Router();
 
 const clientSchema = z.object({
-  name: z.string().trim().min(2, "Nome deve ter pelo menos 2 caracteres"),
+  name: z.string().trim().min(2, "Nome deve ter pelo menos 2 caracteres").max(80, "Nome muito longo"),
   email: z.string().trim().email("Email inválido"),
   notes: z.string().trim().max(500, "Observações muito longas").optional().or(z.literal("")),
 });
