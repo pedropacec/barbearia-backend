@@ -40,8 +40,10 @@ Todas as rotas (exceto login e health) exigem o header `Authorization: Bearer <t
 | PUT | `/api/clients/:id` | Edita cliente |
 | DELETE | `/api/clients/:id` | Remove cliente (agendamentos em cascata) |
 | GET | `/api/services` | Lista os serviços oferecidos |
+| GET | `/api/barbers` | Lista os profissionais e suas escalas |
 | GET | `/api/public/services` | (Pública) Serviços, para o agendamento online |
-| GET | `/api/public/availability?date=` | (Pública) Horários livres do dia, já sem os ocupados |
+| GET | `/api/public/barbers` | (Pública) Profissionais e escalas, para o agendamento online |
+| GET | `/api/public/availability?date=&barberId=` | (Pública) Horários livres do profissional no dia |
 | POST | `/api/public/bookings` | (Pública) Cria a solicitação de agendamento do cliente |
 | GET | `/api/appointments` | Agenda ordenada por data/horário (`?from=&to=` opcional) |
 | POST | `/api/appointments` | Cria agendamento **e dispara o e-mail via n8n** |
@@ -51,7 +53,8 @@ Todas as rotas (exceto login e health) exigem o header `Authorization: Bearer <t
 
 ## Regras de negócio
 
-- **Sem horários duplicados:** a API recusa (HTTP 409) um agendamento ativo no mesmo horário de outro — exatamente o problema que o caderno físico causava.
+- **Sem horários duplicados:** a API recusa (HTTP 409) dois agendamentos ativos no mesmo horário **para o mesmo profissional** — exatamente o problema que o caderno físico causava. Profissionais diferentes podem atender em paralelo.
+- **Escalas por profissional:** cada um dos 6 profissionais tem dias e faixas de horário próprios (tabela `Barber`); o agendamento online só oferece horários dentro da escala de quem foi escolhido, já cruzada com o funcionamento da casa.
 - **Status controlados:** apenas os quatro status definidos no case são aceitos.
 - **Falha isolada da automação:** se o n8n estiver indisponível, o agendamento é salvo normalmente e o erro fica no log. A automação nunca derruba a operação.
 

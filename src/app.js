@@ -4,6 +4,7 @@ import authRoutes from "./routes/auth.js";
 import publicRoutes from "./routes/public.js";
 import clientRoutes from "./routes/clients.js";
 import serviceRoutes from "./routes/services.js";
+import barberRoutes from "./routes/barbers.js";
 import appointmentRoutes from "./routes/appointments.js";
 import { authRequired } from "./middleware/auth.js";
 
@@ -23,6 +24,7 @@ app.use("/api/public", publicRoutes);
 // Todas as rotas abaixo exigem um funcionário autenticado
 app.use("/api/clients", authRequired, clientRoutes);
 app.use("/api/services", authRequired, serviceRoutes);
+app.use("/api/barbers", authRequired, barberRoutes);
 app.use("/api/appointments", authRequired, appointmentRoutes);
 
 app.use((_req, res) => {

@@ -21,6 +21,7 @@ export async function notifyNewAppointment(appointment) {
     clientName: appointment.client.name,
     clientEmail: appointment.client.email,
     service: appointment.service.name,
+    barber: appointment.barber?.name || "A definir",
     date: date.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }),
     weekday: WEEKDAYS[date.getDay()],
     time: date.toLocaleTimeString("pt-BR", {

@@ -36,6 +36,36 @@ async function main() {
     );
   }
 
+  // Profissionais da casa — cada um com a própria escala
+  // (dias: 0 = domingo ... 6 = sábado; casa fecha dom/seg)
+  const barberSeed = [
+    { name: "Otávio Ramos", days: "2,3,4,5,6", startHour: 9, endHour: 15 },
+    { name: "Henrique Farias", days: "2,3,4,5,6", startHour: 13, endHour: 19 },
+    { name: "Caio Bittencourt", days: "2,3,4", startHour: 9, endHour: 19 },
+    { name: "Edu Malta", days: "4,5,6", startHour: 8, endHour: 14 },
+    { name: "Vicente Sarmento", days: "2,3,4,5", startHour: 11, endHour: 17 },
+    { name: "Nato Borges", days: "3,4,5,6", startHour: 10, endHour: 18 },
+  ];
+  const barbers = [];
+  for (const b of barberSeed) {
+    barbers.push(
+      await prisma.barber.upsert({ where: { name: b.name }, update: { days: b.days, startHour: b.startHour, endHour: b.endHour }, create: b })
+    );
+  }
+
+  // Agendamentos antigos sem profissional ganham um cuja escala cubra o horário
+  const orphans = await prisma.appointment.findMany({ where: { barberId: null } });
+  for (const a of orphans) {
+    const day = a.scheduledAt.getDay();
+    const hour = a.scheduledAt.getHours();
+    const match = barbers.find(
+      (b) => b.days.split(",").map(Number).includes(day) && hour >= b.startHour && hour < b.endHour
+    );
+    if (match) {
+      await prisma.appointment.update({ where: { id: a.id }, data: { barberId: match.id } });
+    }
+  }
+
   // Clientes e agendamentos de exemplo (apenas se o banco estiver vazio,
   // para o seed poder rodar de novo sem duplicar dados)
   const clientCount = await prisma.client.count();

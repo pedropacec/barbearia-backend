@@ -10,6 +10,11 @@ export const STATUSES = ["agendado", "concluido", "cancelado", "nao_compareceu"]
 const appointmentSchema = z.object({
   clientId: z.coerce.number().int().positive("Selecione um cliente"),
   serviceId: z.coerce.number().int().positive("Selecione um serviço"),
+  // Profissional é opcional no uso interno (o funcionário pode definir depois)
+  barberId: z.preprocess(
+    (v) => (v === "" || v === undefined || v === null ? null : v),
+    z.coerce.number().int().positive("Profissional inválido").nullable()
+  ),
   scheduledAt: z.coerce.date({ errorMap: () => ({ message: "Data ou horário inválido" }) }),
 });
 
@@ -20,14 +25,18 @@ const statusSchema = z.object({
 const fullInclude = {
   client: { select: { id: true, name: true, email: true } },
   service: { select: { id: true, name: true } },
+  barber: { select: { id: true, name: true } },
 };
 
 // Regra de negócio central: não permitir dois agendamentos ativos no mesmo
-// horário — exatamente o problema de "horários duplicados" do caderno físico.
-async function findConflict(scheduledAt, ignoreId = null) {
+// horário PARA O MESMO profissional — o problema de "horários duplicados"
+// do caderno físico. Agendamentos sem profissional definido conflitam
+// entre si (uma "cadeira" própria).
+async function findConflict(scheduledAt, barberId, ignoreId = null) {
   return prisma.appointment.findFirst({
     where: {
       scheduledAt,
+      barberId,
       status: "agendado",
       ...(ignoreId ? { id: { not: ignoreId } } : {}),
     },
@@ -64,7 +73,7 @@ router.post("/", async (req, res, next) => {
     if (!parsed.success) {
       return res.status(400).json({ error: parsed.error.issues[0].message });
     }
-    const { clientId, serviceId, scheduledAt } = parsed.data;
+    const { clientId, serviceId, barberId, scheduledAt } = parsed.data;
 
     const client = await prisma.client.findUnique({ where: { id: clientId } });
     if (!client) return res.status(400).json({ error: "Cliente não encontrado" });
@@ -72,15 +81,20 @@ router.post("/", async (req, res, next) => {
     const service = await prisma.service.findUnique({ where: { id: serviceId } });
     if (!service) return res.status(400).json({ error: "Serviço não encontrado" });
 
-    const conflict = await findConflict(scheduledAt);
+    if (barberId) {
+      const barber = await prisma.barber.findUnique({ where: { id: barberId } });
+      if (!barber) return res.status(400).json({ error: "Profissional não encontrado" });
+    }
+
+    const conflict = await findConflict(scheduledAt, barberId);
     if (conflict) {
       return res.status(409).json({
-        error: `Este horário já está ocupado por ${conflict.client.name} (${conflict.service.name})`,
+        error: `Este horário já está ocupado por ${conflict.client.name} (${conflict.service.name})${conflict.barber ? ` com ${conflict.barber.name}` : ""}`,
       });
     }
 
     const appointment = await prisma.appointment.create({
-      data: { clientId, serviceId, scheduledAt },
+      data: { clientId, serviceId, barberId, scheduledAt },
       include: fullInclude,
     });
 
@@ -105,7 +119,7 @@ router.put("/:id", async (req, res, next) => {
     if (!parsed.success) {
       return res.status(400).json({ error: parsed.error.issues[0].message });
     }
-    const { clientId, serviceId, scheduledAt } = parsed.data;
+    const { clientId, serviceId, barberId, scheduledAt } = parsed.data;
 
     const client = await prisma.client.findUnique({ where: { id: clientId } });
     if (!client) return res.status(400).json({ error: "Cliente não encontrado" });
@@ -113,16 +127,21 @@ router.put("/:id", async (req, res, next) => {
     const service = await prisma.service.findUnique({ where: { id: serviceId } });
     if (!service) return res.status(400).json({ error: "Serviço não encontrado" });
 
-    const conflict = await findConflict(scheduledAt, id);
+    if (barberId) {
+      const barber = await prisma.barber.findUnique({ where: { id: barberId } });
+      if (!barber) return res.status(400).json({ error: "Profissional não encontrado" });
+    }
+
+    const conflict = await findConflict(scheduledAt, barberId, id);
     if (conflict) {
       return res.status(409).json({
-        error: `Este horário já está ocupado por ${conflict.client.name} (${conflict.service.name})`,
+        error: `Este horário já está ocupado por ${conflict.client.name} (${conflict.service.name})${conflict.barber ? ` com ${conflict.barber.name}` : ""}`,
       });
     }
 
     const appointment = await prisma.appointment.update({
       where: { id },
-      data: { clientId, serviceId, scheduledAt },
+      data: { clientId, serviceId, barberId, scheduledAt },
       include: fullInclude,
     });
     res.json(appointment);
