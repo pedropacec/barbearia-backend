@@ -6,12 +6,46 @@ import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
-// Helper: data de hoje + N dias, em um horário específico
-function at(daysFromNow, hour, minute = 0) {
+// Dias em que a barbearia abre (0 = domingo ... 6 = sábado). Fecha dom/seg.
+function isOpenDay(d) {
+  return d.getDay() !== 0 && d.getDay() !== 1;
+}
+
+// Retorna as próximas `count` datas abertas no passado (-1) ou futuro (+1),
+// a partir de hoje. Assim nenhum agendamento cai em dia fechado.
+function openDays(count, direction) {
+  const res = [];
   const d = new Date();
-  d.setDate(d.getDate() + daysFromNow);
+  d.setHours(0, 0, 0, 0);
+  while (res.length < count) {
+    d.setDate(d.getDate() + direction);
+    if (isOpenDay(d)) res.push(new Date(d));
+  }
+  return res;
+}
+
+function atTime(baseDate, hour, minute = 0) {
+  const d = new Date(baseDate);
   d.setHours(hour, minute, 0, 0);
   return d;
+}
+
+// Escolhe um profissional cuja escala cobra aquele dia/horário, evitando
+// que dois agendamentos ativos caiam no mesmo profissional e instante.
+function pickBarber(barbers, date, hour, used, spread) {
+  const dow = date.getDay();
+  const fit = barbers.filter(
+    (b) => b.days.split(",").map(Number).includes(dow) && hour >= b.startHour && hour < b.endHour
+  );
+  for (let i = 0; i < fit.length; i++) {
+    const b = fit[(spread + i) % fit.length];
+    const key = `${b.id}@${date.getTime()}`;
+    if (!used.has(key)) {
+      used.add(key);
+      return b;
+    }
+  }
+  return fit[0] || null;
 }
 
 async function main() {
@@ -53,19 +87,6 @@ async function main() {
     );
   }
 
-  // Agendamentos antigos sem profissional ganham um cuja escala cubra o horário
-  const orphans = await prisma.appointment.findMany({ where: { barberId: null } });
-  for (const a of orphans) {
-    const day = a.scheduledAt.getDay();
-    const hour = a.scheduledAt.getHours();
-    const match = barbers.find(
-      (b) => b.days.split(",").map(Number).includes(day) && hour >= b.startHour && hour < b.endHour
-    );
-    if (match) {
-      await prisma.appointment.update({ where: { id: a.id }, data: { barberId: match.id } });
-    }
-  }
-
   // Clientes e agendamentos de exemplo (apenas se o banco estiver vazio,
   // para o seed poder rodar de novo sem duplicar dados)
   const clientCount = await prisma.client.count();
@@ -80,25 +101,36 @@ async function main() {
       ].map((data) => prisma.client.create({ data }))
     );
 
-    const sampleAppointments = [
-      { client: 0, service: 2, when: at(0, 10), status: "concluido" },
-      { client: 1, service: 0, when: at(0, 11), status: "concluido" },
-      { client: 2, service: 1, when: at(0, 15), status: "agendado" },
-      { client: 3, service: 0, when: at(0, 16, 30), status: "agendado" },
-      { client: 4, service: 2, when: at(1, 9, 30), status: "agendado" },
-      { client: 0, service: 3, when: at(1, 14), status: "agendado" },
-      { client: 1, service: 2, when: at(2, 10), status: "agendado" },
-      { client: 2, service: 0, when: at(-1, 17), status: "nao_compareceu" },
-      { client: 4, service: 1, when: at(-1, 11), status: "cancelado" },
+    const future = openDays(4, 1); // próximos dias abertos (agendamentos futuros)
+    const past = openDays(2, -1); // últimos dias abertos (histórico)
+
+    // client/service por índice; day = data base; hour/min = horário; status.
+    // O profissional é escolhido em runtime conforme a escala cobre o horário.
+    const specs = [
+      { client: 0, service: 2, day: future[0], hour: 10, status: "agendado" },
+      { client: 1, service: 0, day: future[0], hour: 14, status: "agendado" },
+      { client: 2, service: 1, day: future[1], hour: 11, status: "agendado" },
+      { client: 3, service: 0, day: future[1], hour: 15, status: "agendado" },
+      { client: 4, service: 2, day: future[2], hour: 13, status: "agendado" },
+      { client: 0, service: 3, day: future[3], hour: 16, status: "agendado" },
+      { client: 1, service: 2, day: past[0], hour: 10, status: "concluido" },
+      { client: 0, service: 0, day: past[0], hour: 14, status: "concluido" },
+      { client: 2, service: 0, day: past[1], hour: 11, status: "nao_compareceu" },
+      { client: 4, service: 1, day: past[1], hour: 15, status: "cancelado" },
     ];
 
-    for (const a of sampleAppointments) {
+    const used = new Set();
+    let i = 0;
+    for (const s of specs) {
+      const when = atTime(s.day, s.hour, s.min || 0);
+      const barber = pickBarber(barbers, when, s.hour, used, i++);
       await prisma.appointment.create({
         data: {
-          clientId: clients[a.client].id,
-          serviceId: services[a.service].id,
-          scheduledAt: a.when,
-          status: a.status,
+          clientId: clients[s.client].id,
+          serviceId: services[s.service].id,
+          barberId: barber ? barber.id : null,
+          scheduledAt: when,
+          status: s.status,
         },
       });
     }
